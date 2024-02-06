@@ -6,6 +6,7 @@ import (
 	"fdb/index"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,8 @@ type DB struct {
 	activeFile *data.DataFile            // 当前活跃数据文件，可用于写入
 	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只用于读
 	index      index.Indexer             // 内存索引
+	seqNo      uint64                    // 事务序列号
+	isMerging  bool                      // 是否正在merge
 }
 
 // Open 打开存储引擎实例
@@ -45,6 +48,16 @@ func Open(options Options) (*DB, error) {
 		index:      index.NewIndexer(options.IndexType),
 	}
 
+	// 加载merge数据目录,将merge后的数据文件和索引文件移动到了数据目录下
+	if err := db.loadMergeFiles(); err != nil {
+		return nil, err
+	}
+
+	// 从hint索引文件加载索引
+	if err := db.loadIndexFromHintFile(); err != nil {
+		return nil, err
+	}
+
 	// 加载数据文件
 	if err := db.loadDataFiles(); err != nil {
 		return nil, err
@@ -58,6 +71,37 @@ func Open(options Options) (*DB, error) {
 	return db, nil
 }
 
+// Close 关闭数据库
+func (db *DB) Close() error {
+	if db.activeFile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	// 关闭当前活跃文件
+	if err := db.activeFile.Close(); err != nil {
+		return err
+	}
+	//关闭旧的文件
+	for _, file := range db.olderFiles {
+		if err := file.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Sync 持久化数据文件
+func (db *DB) Sync() error {
+	if db.activeFile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.activeFile.Sync()
+}
+
 // Put 写入key/value数据
 func (db *DB) Put(key, value []byte) error {
 	// 检查key
@@ -65,13 +109,13 @@ func (db *DB) Put(key, value []byte) error {
 		return ErrKeyIsEmpty
 	}
 	logRecord := &data.LogRecord{
-		Key:   key,
+		Key:   logRecordKeyWithSeq(key, nonTransactionSeqNo),
 		Value: value,
 		Type:  data.LogRecordNormal,
 	}
 
 	// 追加写入到当前文件
-	pos, err := db.appendLogRecord(logRecord)
+	pos, err := db.appendLogRecordWithLock(logRecord)
 	if err != nil {
 		return err
 	}
@@ -97,19 +141,57 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	if logRecordPos == nil {
 		return nil, ErrKeyNotFound
 	}
+
+	// 从数据文件中获取value
+	return db.getValueByPosition(logRecordPos)
+}
+
+// Fold 获取所有的数据，并执行用户指定的操作,函数返回false时终止遍历
+func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	iterator := db.index.Iterator(false)
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		val, err := db.getValueByPosition(iterator.Value())
+		if err != nil {
+			return err
+		}
+		if !fn(iterator.Key(), val) {
+			break
+		}
+	}
+	return nil
+}
+
+// ListKeys 获取数据库中所有的key
+func (db *DB) ListKeys() [][]byte {
+	iterator := db.index.Iterator(false)
+
+	keys := make([][]byte, db.index.Size())
+	idx := 0
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		keys[idx] = iterator.Key()
+		idx++
+	}
+	return keys
+}
+
+// 根据索引信息获取对应的value
+func (db *DB) getValueByPosition(pos *data.LogRecordPos) ([]byte, error) {
 	// 根据文件ID找到数据文件
 	var dataFile *data.DataFile
-	if db.activeFile.FileId == logRecordPos.Fid {
+	if db.activeFile.FileId == pos.Fid {
 		dataFile = db.activeFile
 	} else {
-		dataFile = db.olderFiles[logRecordPos.Fid]
+		dataFile = db.olderFiles[pos.Fid]
 	}
 	// 数据文件为空
 	if dataFile == nil {
 		return nil, ErrDataFileNotFound
 	}
 	// 根据偏移量读取对应的数据
-	logRecord, _, err := dataFile.ReadLogRecord(logRecordPos.Offset)
+	logRecord, _, err := dataFile.ReadLogRecord(pos.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +216,11 @@ func (db *DB) Delete(key []byte) error {
 	}
 	// 构造logRecord，标识其是被删除的
 	logRecord := &data.LogRecord{
-		Key:  key,
+		Key:  logRecordKeyWithSeq(key, nonTransactionSeqNo),
 		Type: data.LogRecordDeleted,
 	}
 	// 写入数据文件中
-	_, err := db.appendLogRecord(logRecord)
+	_, err := db.appendLogRecordWithLock(logRecord)
 	if err != nil {
 		return err
 	}
@@ -210,9 +292,38 @@ func (db *DB) loadIndexFromDataFiles() error {
 	if len(db.fileIds) == 0 {
 		return nil
 	}
+
+	// 查看是否发生过merge,如果发生过，加载fid大于nonMergeFileId的即可
+	hasMerge, nonMergeFileId := false, uint32(0)
+	mergeFinishedFileName := filepath.Join(db.options.DirPath, data.MergeFinishedFileName)
+	if _, err := os.Stat(mergeFinishedFileName); err == nil {
+		fId, err := db.getNonMergeFileId(db.options.DirPath)
+		if err != nil {
+			return err
+		}
+		hasMerge = true
+		nonMergeFileId = fId
+	}
+
+	updateIndex := func(key []byte, logType data.LogRecordType, pos *data.LogRecordPos) {
+		if logType == data.LogRecordDeleted {
+			db.index.Delete(key)
+		} else {
+			db.index.Put(key, pos)
+		}
+	}
+
+	// 暂存事务数据,事务ID=>[]数据信息
+	transactionRecords := make(map[uint64][]*data.TransactionRecord)
+	var currentSeqNo = nonTransactionSeqNo
+
 	// 遍历所有文件ID，处理文件中的记录
 	for i, fid := range db.fileIds {
 		var fileId = uint32(fid)
+		// 如果比最近未参与merge的文件id更小。则说明已经从hint文件中加载了索引
+		if hasMerge && fileId < nonMergeFileId {
+			continue
+		}
 		var dataFile *data.DataFile
 		if fileId == db.activeFile.FileId {
 			dataFile = db.activeFile
@@ -231,15 +342,35 @@ func (db *DB) loadIndexFromDataFiles() error {
 				return err
 			}
 			// 构建内存索引并保存
-			logRecordPos := data.LogRecordPos{
+			logRecordPos := &data.LogRecordPos{
 				Fid:    fileId,
 				Offset: offset,
 			}
-			if logRecord.Type == data.LogRecordDeleted {
-				db.index.Delete(logRecord.Key)
+
+			// 解析 key 拿到事务序列号
+			realKey, seqNo := parseLogRecordKey(logRecord.Key)
+			if seqNo == nonTransactionSeqNo { // 非事务操作，直接更新内存索引
+				updateIndex(realKey, logRecord.Type, logRecordPos)
 			} else {
-				db.index.Put(logRecord.Key, &logRecordPos)
+				if logRecord.Type == data.LogRecordTxFinished {
+					for _, txRecord := range transactionRecords[seqNo] {
+						updateIndex(txRecord.Record.Key, txRecord.Record.Type, txRecord.Pos)
+					}
+					delete(transactionRecords, seqNo)
+				} else { // 是writeBatch的数据，但还没有到结束标识
+					logRecord.Key = realKey
+					transactionRecords[seqNo] = append(transactionRecords[seqNo], &data.TransactionRecord{
+						Record: logRecord,
+						Pos:    logRecordPos,
+					})
+				}
 			}
+
+			// 更新事务序列号
+			if seqNo > currentSeqNo {
+				currentSeqNo = seqNo
+			}
+
 			offset += size
 		}
 		// 如果当前是活跃文件，更新这个文件的writeOff
@@ -247,13 +378,22 @@ func (db *DB) loadIndexFromDataFiles() error {
 			db.activeFile.WriteOff = offset
 		}
 	}
+	// 更新序列号
+	db.seqNo = currentSeqNo
+
 	return nil
 }
 
 // 追加写数据到活跃文件中
-func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, error) {
+func (db *DB) appendLogRecordWithLock(logRecord *data.LogRecord) (*data.LogRecordPos, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	return db.appendLogRecord(logRecord)
+}
+
+// 追加写数据到活跃文件中
+func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, error) {
 
 	// 判断当前活跃数据文件是否存在，因为数据库在没有写入数据的时候是没有文件生成的
 	if db.activeFile == nil {

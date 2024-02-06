@@ -1,8 +1,10 @@
 package index
 
 import (
+	"bytes"
 	"fdb/data"
 	"github.com/google/btree"
+	"sort"
 	"sync"
 )
 
@@ -52,4 +54,82 @@ func (bt *Btree) Delete(key []byte) bool {
 		return false
 	}
 	return true
+}
+
+func (bt *Btree) Size() int {
+	return bt.tree.Len()
+}
+
+func (bt *Btree) Iterator(reverse bool) Iterator {
+	if bt.tree == nil {
+		return nil
+	}
+	bt.lock.Lock()
+	defer bt.lock.Unlock()
+	return newBTreeIterator(bt.tree, reverse)
+}
+
+// BTree索引迭代器
+type btreeIterator struct {
+	currIndex int     // 当前遍历的位置
+	reverse   bool    // 是否是反向遍历
+	values    []*Item // key位置索引信息
+}
+
+func newBTreeIterator(tree *btree.BTree, reverse bool) *btreeIterator {
+	var idx int
+	values := make([]*Item, tree.Len())
+	// 将所有数据存放到数组中
+	saveValues := func(it btree.Item) bool {
+		values[idx] = it.(*Item)
+		idx++
+		return true
+	}
+	if reverse {
+		tree.Descend(saveValues)
+	} else {
+		tree.Ascend(saveValues)
+	}
+
+	return &btreeIterator{
+		currIndex: 0,
+		reverse:   reverse,
+		values:    values,
+	}
+}
+
+func (bti *btreeIterator) Rewind() {
+	bti.currIndex = 0
+}
+
+func (bti *btreeIterator) Seek(key []byte) {
+	if bti.reverse {
+		bti.currIndex = sort.Search(len(bti.values), func(i int) bool {
+			return bytes.Compare(bti.values[i].key, key) <= 0
+		})
+	} else {
+		bti.currIndex = sort.Search(len(bti.values), func(i int) bool {
+			return bytes.Compare(bti.values[i].key, key) >= 0
+		})
+	}
+}
+
+func (bti *btreeIterator) Next() {
+	bti.currIndex++
+}
+
+func (bti *btreeIterator) Valid() bool {
+	return bti.currIndex < len(bti.values)
+}
+
+func (bti *btreeIterator) Key() []byte {
+	return bti.values[bti.currIndex].key
+}
+
+func (bti *btreeIterator) Value() *data.LogRecordPos {
+	return bti.values[bti.currIndex].pos
+}
+
+func (bti *btreeIterator) Close() {
+	bti.values = nil
 }

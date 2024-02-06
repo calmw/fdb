@@ -20,11 +20,36 @@ type DataFile struct {
 	IOManager fio.IOManager // 读写管理
 }
 
-const DataFileNameSuffix = ".data" // 定义数据文件后缀
+const (
+	DataFileNameSuffix    = ".data"          // 定义数据文件后缀
+	HintFileName          = "hint-index"     // 定义hint文件名称
+	MergeFinishedFileName = "merge-finished" // 定义merge完成的文件名称
+)
 
 // OpenDataFile 打开新的数据文件
 func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
-	fileName := filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
+	fileName := GetDataFileName(dirPath, fileId)
+	return newDataFile(fileName, fileId)
+}
+
+// OpenHintFile 打开Hint索引文件
+func OpenHintFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, HintFileName)
+	return newDataFile(fileName, 0)
+}
+
+// OpenMergeFinishedFile 打开标识merge完成的文件
+func OpenMergeFinishedFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, MergeFinishedFileName)
+	return newDataFile(fileName, 0)
+}
+
+func GetDataFileName(dirPath string, fileId uint32) string {
+	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
+}
+
+func newDataFile(fileName string, fileId uint32) (*DataFile, error) {
+	// 初始化IO管理器接口
 	ioManager, err := fio.NewIOManager(fileName)
 	if err != nil {
 		return nil, err
@@ -36,7 +61,7 @@ func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
 	}, nil
 }
 
-// ReadLogRecord 根据offset从数据文件中读取Logrecord
+// ReadLogRecord 根据offset从数据文件中读取LogRecord
 func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 	fileSize, err := df.IOManager.Size()
 	if err != nil {
@@ -94,6 +119,17 @@ func (df *DataFile) Write(buf []byte) error {
 	}
 	df.WriteOff += int64(n)
 	return nil
+}
+
+// WriteHintRecord 写入索引信息到hint文件中
+func (df *DataFile) WriteHintRecord(key []byte, pos *LogRecordPos) error {
+	record := &LogRecord{
+		Key:   key,
+		Value: EncodeLogRecordPos(pos),
+	}
+	encRecord, _ := EncodeLogRecord(record)
+
+	return df.Write(encRecord)
 }
 
 func (df *DataFile) Close() error {
