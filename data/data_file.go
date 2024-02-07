@@ -24,6 +24,7 @@ const (
 	DataFileNameSuffix    = ".data"          // 定义数据文件后缀
 	HintFileName          = "hint-index"     // 定义hint文件名称
 	MergeFinishedFileName = "merge-finished" // 定义merge完成的文件名称
+	SeqNoFileName         = "seq-no"         // 存储事务序列号的文件，用于B+树
 )
 
 // OpenDataFile 打开新的数据文件
@@ -35,6 +36,12 @@ func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
 // OpenHintFile 打开Hint索引文件
 func OpenHintFile(dirPath string) (*DataFile, error) {
 	fileName := filepath.Join(dirPath, HintFileName)
+	return newDataFile(fileName, 0)
+}
+
+// OpenSeqNoFile 存储事务序列号的文件
+func OpenSeqNoFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, SeqNoFileName)
 	return newDataFile(fileName, 0)
 }
 

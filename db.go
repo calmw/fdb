@@ -6,6 +6,7 @@ import (
 	"fdb/index"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -15,15 +16,21 @@ import (
 
 // DB 存储引擎实例
 type DB struct {
-	options    Options // 配置项
-	mu         *sync.RWMutex
-	fileIds    []int                     // 文件ID，只能在加载索引的时候使用，不能在其他地方更新和使用
-	activeFile *data.DataFile            // 当前活跃数据文件，可用于写入
-	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只用于读
-	index      index.Indexer             // 内存索引
-	seqNo      uint64                    // 事务序列号
-	isMerging  bool                      // 是否正在merge
+	options         Options // 配置项
+	mu              *sync.RWMutex
+	fileIds         []int                     // 文件ID，只能在加载索引的时候使用，不能在其他地方更新和使用
+	activeFile      *data.DataFile            // 当前活跃数据文件，可用于写入
+	olderFiles      map[uint32]*data.DataFile // 旧的数据文件，只用于读
+	index           index.Indexer             // 内存索引
+	seqNo           uint64                    // 事务序列号
+	isMerging       bool                      // 是否正在merge
+	seqNoFileExists bool                      // 存储事务序列号的seqNo文件是否存在
+	isInitial       bool                      // 是否初始化数据目录，第一次启动
 }
+
+const (
+	seqNoKey = "seq.no"
+)
 
 // Open 打开存储引擎实例
 func Open(options Options) (*DB, error) {
@@ -32,11 +39,20 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
+	var isInitial bool
 	// 判断数据目录是否存在，如果不存在，则创建这个目录
 	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
+		isInitial = true
 		if err = os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
+	}
+	entries, err := os.ReadDir(options.DirPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 { // 目录存在，文件不存在
+		isInitial = true
 	}
 
 	// 初始化DB实例结构
@@ -45,16 +61,12 @@ func Open(options Options) (*DB, error) {
 		mu:      &sync.RWMutex{},
 		//activeFile: nil,
 		olderFiles: make(map[uint32]*data.DataFile),
-		index:      index.NewIndexer(options.IndexType),
+		index:      index.NewIndexer(options.IndexType, options.DirPath, options.SyncWrite),
+		isInitial:  isInitial,
 	}
 
 	// 加载merge数据目录,将merge后的数据文件和索引文件移动到了数据目录下
 	if err := db.loadMergeFiles(); err != nil {
-		return nil, err
-	}
-
-	// 从hint索引文件加载索引
-	if err := db.loadIndexFromHintFile(); err != nil {
 		return nil, err
 	}
 
@@ -63,9 +75,31 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
-	// 从数据文件中加载索引
-	if err := db.loadIndexFromDataFiles(); err != nil {
-		return nil, err
+	// B+树索引不需要从数据文件中加载索引
+	if db.options.IndexType != IndexTypeBPlusTree {
+		// 从hint索引文件加载索引
+		if err := db.loadIndexFromHintFile(); err != nil {
+			return nil, err
+		}
+
+		// 从数据文件中加载索引
+		if err := db.loadIndexFromDataFiles(); err != nil {
+			return nil, err
+		}
+	}
+
+	// 取出事务序列号,b+树需要从seqNoFile加载seqNo,并从活跃文件获取offset
+	if db.options.IndexType == IndexTypeBPlusTree {
+		if err = db.loadSeqNo(); err != nil {
+			return nil, err
+		}
+		if db.activeFile != nil {
+			size, err := db.activeFile.IOManager.Size()
+			if err != nil {
+				return nil, err
+			}
+			db.activeFile.WriteOff = size
+		}
 	}
 
 	return db, nil
@@ -78,6 +112,29 @@ func (db *DB) Close() error {
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	// 关闭索引，特别是B+树是需要关闭的，毕竟它本是是个数据库实例
+	if err := db.index.Close(); err != nil {
+		return err
+	}
+
+	// 保存当前事务序列号
+	seqNoFile, err := data.OpenSeqNoFile(db.options.DirPath)
+	if err != nil {
+		return err
+	}
+	record := &data.LogRecord{
+		Key:   []byte(seqNoKey),
+		Value: []byte(strconv.FormatUint(db.seqNo, 10)),
+	}
+	encRecord, _ := data.EncodeLogRecord(record)
+	if err = seqNoFile.Write(encRecord); err != nil {
+		return err
+	}
+	if err = seqNoFile.Sync(); err != nil {
+		return err
+	}
+
 	// 关闭当前活跃文件
 	if err := db.activeFile.Close(); err != nil {
 		return err
@@ -152,6 +209,7 @@ func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 	defer db.mu.Unlock()
 
 	iterator := db.index.Iterator(false)
+	defer iterator.Close()
 	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
 		val, err := db.getValueByPosition(iterator.Value())
 		if err != nil {
@@ -167,6 +225,7 @@ func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 // ListKeys 获取数据库中所有的key
 func (db *DB) ListKeys() [][]byte {
 	iterator := db.index.Iterator(false)
+	defer iterator.Close() // B+树的迭代器，读写事务是互斥的，读完，不关闭的话，写不进去，btree和amt其实不需要关闭迭代器
 
 	keys := make([][]byte, db.index.Size())
 	idx := 0
@@ -434,6 +493,30 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, er
 		Offset: writeOff,
 	}
 	return pos, nil
+}
+
+// 追加写数据到活跃文件中
+func (db *DB) loadSeqNo() error {
+	fileName := path.Join(db.options.DirPath, data.SeqNoFileName)
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		return err
+	}
+	seqNoFile, err := data.OpenSeqNoFile(db.options.DirPath)
+	if err != nil {
+		return err
+	}
+	record, _, err := seqNoFile.ReadLogRecord(0)
+	if err != nil {
+		return err
+	}
+	seqNo, err := strconv.ParseUint(string(record.Value), 10, 64)
+	if err != nil {
+		return err
+	}
+	db.seqNo = seqNo
+	db.seqNoFileExists = true
+
+	return os.Remove(fileName) // 防止追加写多条，所以这里删除
 }
 
 func checkOptions(options Options) error {

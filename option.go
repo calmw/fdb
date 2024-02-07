@@ -22,8 +22,9 @@ type WriteBatchOptions struct {
 type IndexType = int8
 
 const (
-	IndexTypeBtree IndexType = iota + 1 // Btree索引
-	IndexTypeART                        //自适应基础树索引
+	IndexTypeBtree     IndexType = iota + 1 // Btree索引
+	IndexTypeART                            // 自适应基础树索引
+	IndexTypeBPlusTree                      // B+树索引，将索引存储到磁盘上
 )
 
 var DefaultOption = Options{

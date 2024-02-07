@@ -19,6 +19,10 @@ type WriteBatch struct {
 }
 
 func (db *DB) NewWriteBatch(opts WriteBatchOptions) *WriteBatch {
+	// B+树索引，不是第一次加载，并且序列号文件不存，禁用writeBatch （原因可能是上一次未正常关闭数据库，导致序列号文件未写成功）
+	if db.options.IndexType == IndexTypeBPlusTree && !db.seqNoFileExists && !db.isInitial {
+		panic("can not use write batch, seqNo file dose not exists")
+	}
 	return &WriteBatch{
 		options:       opts,
 		mu:            &sync.Mutex{},
