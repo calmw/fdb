@@ -7,11 +7,11 @@ import (
 )
 
 type Indexer interface {
-	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos // 向索引中存储key对应的数据位置信息
+	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos // 向索引中存储key对应的数据位置信息,key已存在就更新value并返回旧的value，否则返回nil
 	Get(key []byte) *data.LogRecordPos                         // 根据key取出对应的索引位置信息
-	Delete(key []byte) bool
-	Size() int                      // 索引中存在多少条数据
-	Iterator(reverse bool) Iterator // 索引迭代器
+	Delete(key []byte) bool                                    // 根据key,删除对应的索引位置信息
+	Size() int                                                 // 索引中存在多少条数据
+	Iterator(reverse bool) Iterator                            // 索引迭代器
 }
 
 type IndexType = int8
@@ -33,8 +33,7 @@ func NewIndexer(indexType IndexType) Indexer {
 	case BtreeType:
 		return NewBtree()
 	case ARTType:
-		// TODO
-		return nil
+		return NewART()
 	default:
 		panic("unsupported index type")
 	}
