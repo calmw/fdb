@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+	"time"
 )
 
 // 测试完成之后销毁 DB 数据目录
@@ -297,4 +298,55 @@ func TestDB_Sync(t *testing.T) {
 
 	err = db.Sync()
 	assert.Nil(t, err)
+}
+
+func TestDB_FileLock(t *testing.T) {
+	opts := DefaultOption
+	dir, _ := os.MkdirTemp("", "bitcask-go-sync")
+	opts.DirPath = dir
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+	//db.Close()
+	db, err = Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+
+}
+
+// 数据库启动直接文件加载和使用内存映射速度对比
+// 是否使用内存映射读取，速度差将近五倍
+func TestDB_Start(t *testing.T) {
+	now := time.Now()
+
+	opts := DefaultOption
+
+	// 写入数据
+	//opts.DirPath = "/tmp/fdb-go"
+	//t.Log(opts.DirPath)
+	//db, err := Open(opts)
+	//t.Log(err)
+	//for i := 0; i < 10000000; i++ {
+	//	err = db.Put([]byte(fmt.Sprintf("index-%010d", i)), []byte("some value"))
+	//	if err != nil {
+	//		t.Log(err)
+	//		break
+	//	}
+	//}
+	//t.Log(time.Since(now)) // 61.88s
+
+	// MMap内存映射IO打开
+	//opts.DirPath = "/tmp/fdb-go"
+	//opts.MMapAtStartup = true
+	//_, err := Open(opts)
+	//t.Log(err)
+	//t.Log(time.Since(now)) // 9.95s
+
+	// 标准文件IO打开
+	opts.DirPath = "/tmp/fdb-go"
+	opts.MMapAtStartup = false
+	_, err := Open(opts)
+	t.Log(err)
+	t.Log(time.Since(now)) // 44.52s
 }

@@ -2,8 +2,15 @@ package fio
 
 import (
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 )
+
+func destroyFile(name string) {
+	if err := os.RemoveAll(name); err != nil {
+		panic(err)
+	}
+}
 
 func TestNewFileIO(t *testing.T) {
 	io, err := NewFileIOManager("./test_file")
