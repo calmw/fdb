@@ -1,13 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"github.com/calmw/fdb"
+	"log"
+	"os"
 )
 
 func main() {
 	opts := fdb.DefaultOption
 	db, err := fdb.Open(opts)
+	defer func() {
+		_ = db.Close()
+		_ = os.RemoveAll(opts.DirPath)
+	}()
 	if err != nil {
 		return
 	}
@@ -21,7 +26,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("val=:", string(val))
+	log.Println("val=:", string(val))
 
 	err = db.Delete([]byte("name"))
 	if err != nil {
@@ -30,7 +35,8 @@ func main() {
 
 	val2, err := db.Get([]byte("name"))
 	if err != nil {
-		panic(err)
+		log.Println("error :", err)
+	} else {
+		log.Println("val=:", string(val2))
 	}
-	fmt.Println("val=:", string(val2))
 }
