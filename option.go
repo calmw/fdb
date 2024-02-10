@@ -1,10 +1,12 @@
 package fdb
 
 type Options struct {
-	DirPath      string // 数据库数据目录
-	DataFileSize int64  // 数据文件的大小
-	SyncWrite    bool   // 每次写入是否持久化
-	IndexType    IndexType
+	DirPath       string    // 数据库数据目录
+	DataFileSize  int64     // 数据文件的大小
+	SyncWrite     bool      // 每次写入是否持久化
+	IndexType     IndexType // 索引类型
+	BytesPerWrite uint      // 累计多少字节时执行持久化
+	MMapAtStartup bool      // 在启动的时候是否使用MMap加载数据
 }
 
 // IteratorOptions 索引迭代器配置项
@@ -28,10 +30,11 @@ const (
 )
 
 var DefaultOption = Options{
-	DirPath:      "./fdb",
-	DataFileSize: 256 * 1024 * 1024,
-	SyncWrite:    false,
-	IndexType:    IndexTypeBtree,
+	DirPath:       "./fdb",
+	DataFileSize:  256 * 1024 * 1024,
+	SyncWrite:     false,
+	IndexType:     IndexTypeBtree,
+	MMapAtStartup: true,
 }
 
 var DefaultIteratorOptions = IteratorOptions{
