@@ -1,8 +1,8 @@
 package fdb
 
 import (
-	"fdb/data"
-	"fdb/utils"
+	"github.com/calmw/fdb/data"
+	"github.com/calmw/fdb/utils"
 	"io"
 	"os"
 	"path"

@@ -2,7 +2,7 @@ package index
 
 import (
 	"bytes"
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	goart "github.com/plar/go-adaptive-radix-tree"
 	"sort"
 	"sync"

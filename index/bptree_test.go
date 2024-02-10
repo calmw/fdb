@@ -1,7 +1,7 @@
 package index
 
 import (
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	"os"
 	"path/filepath"
 	"testing"

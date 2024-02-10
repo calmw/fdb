@@ -1,7 +1,7 @@
 package index
 
 import (
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

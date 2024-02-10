@@ -2,7 +2,7 @@ package fdb
 
 import (
 	"encoding/binary"
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	"sync"
 	"sync/atomic"
 )

@@ -1,8 +1,8 @@
 package fdb
 
 import (
-	"fdb/utils"
 	"fmt"
+	"github.com/calmw/fdb/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"

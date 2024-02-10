@@ -2,7 +2,7 @@ package fdb
 
 import (
 	"bytes"
-	"fdb/index"
+	"github.com/calmw/fdb/index"
 )
 
 // Iterator 迭代器

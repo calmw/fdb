@@ -2,8 +2,8 @@ package data
 
 import (
 	"errors"
-	"fdb/fio"
 	"fmt"
+	"github.com/calmw/fdb/fio"
 	"hash/crc32"
 	"io"
 	"path/filepath"

@@ -2,11 +2,11 @@ package fdb
 
 import (
 	"errors"
-	"fdb/data"
-	"fdb/fio"
-	"fdb/index"
-	"fdb/utils"
 	"fmt"
+	"github.com/calmw/fdb/data"
+	"github.com/calmw/fdb/fio"
+	"github.com/calmw/fdb/index"
+	"github.com/calmw/fdb/utils"
 	"github.com/gofrs/flock"
 	"io"
 	"os"

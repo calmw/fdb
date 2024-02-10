@@ -2,7 +2,7 @@ package index
 
 import (
 	"bytes"
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	"github.com/google/btree"
 )
 

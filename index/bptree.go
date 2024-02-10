@@ -1,8 +1,8 @@
 package index
 
 import (
-	"fdb/data"
 	"fmt"
+	"github.com/calmw/fdb/data"
 	"go.etcd.io/bbolt"
 	"os"
 	"path/filepath"
