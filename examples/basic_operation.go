@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fdb"
 	"fmt"
+	"github.com/calmw/fdb"
 )
 
 func main() {
