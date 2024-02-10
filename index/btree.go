@@ -2,7 +2,7 @@ package index
 
 import (
 	"bytes"
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	"github.com/google/btree"
 	"sort"
 	"sync"
@@ -45,15 +45,15 @@ func (bt *Btree) Get(key []byte) *data.LogRecordPos {
 	return btreeIterm.(*Item).pos
 }
 
-func (bt *Btree) Delete(key []byte) bool {
+func (bt *Btree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	it := &Item{key: key}
 	bt.lock.Lock()
 	defer bt.lock.Unlock()
 	oldIterm := bt.tree.Delete(it)
 	if oldIterm == nil {
-		return false
+		return nil, false
 	}
-	return true
+	return oldIterm.(*Item).pos, true
 }
 
 func (bt *Btree) Size() int {

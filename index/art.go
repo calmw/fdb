@@ -2,7 +2,7 @@ package index
 
 import (
 	"bytes"
-	"fdb/data"
+	"github.com/calmw/fdb/data"
 	goart "github.com/plar/go-adaptive-radix-tree"
 	"sort"
 	"sync"
@@ -42,12 +42,14 @@ func (art *AdaptiveRadixTree) Get(key []byte) *data.LogRecordPos {
 	return value.(*data.LogRecordPos)
 }
 
-func (art *AdaptiveRadixTree) Delete(key []byte) bool {
+func (art *AdaptiveRadixTree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	art.lock.Lock()
 	defer art.lock.Unlock()
-	_, deleted := art.tree.Delete(key)
-
-	return deleted
+	oldValue, deleted := art.tree.Delete(key)
+	if oldValue == nil {
+		return nil, deleted
+	}
+	return oldValue.(*data.LogRecordPos), deleted
 }
 
 func (art *AdaptiveRadixTree) Size() int {

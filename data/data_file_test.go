@@ -1,7 +1,7 @@
 package data
 
 import (
-	"fdb/fio"
+	"github.com/calmw/fdb/fio"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"

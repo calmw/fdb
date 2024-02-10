@@ -1,7 +1,8 @@
 package fdb
 
 import (
-	"fdb/utils"
+	"fmt"
+	"github.com/calmw/fdb/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -349,4 +350,29 @@ func TestDB_Start(t *testing.T) {
 	_, err := Open(opts)
 	t.Log(err)
 	t.Log(time.Since(now)) // 44.52s
+}
+
+// 测试数据库统计信息
+func TestDB_Stat(t *testing.T) {
+	opts := DefaultOption
+
+	// 写入数据
+	opts.DirPath = "/tmp/fdb-go"
+	t.Log(opts.DirPath)
+	db, err := Open(opts)
+	defer destroyDB(db)
+	t.Log(err)
+	for i := 0; i < 100; i++ {
+		err = db.Put([]byte(fmt.Sprintf("index-%010d", i)), []byte("some value"))
+		if err != nil {
+			t.Log(err)
+			break
+		}
+	}
+	err = db.Put([]byte(fmt.Sprintf("index-%010d", 2)), []byte("some value"))
+	err = db.Put([]byte(fmt.Sprintf("index-%010d", 3)), []byte("some value"))
+	t.Log(db.Stat())
+	err = db.Delete([]byte(fmt.Sprintf("index-%010d", 4)))
+	t.Log(db.Stat())
+
 }

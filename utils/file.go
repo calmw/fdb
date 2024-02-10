@@ -8,9 +8,10 @@ import (
 	"syscall"
 )
 
-// DirSize 获取一个目录的大小
+// DirSize 获取一个目录的大小,单位字节
 func DirSize(dirPath string) (int64, error) {
 	var size int64
+	// 对目录进行遍历操作
 	err := filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -23,7 +24,7 @@ func DirSize(dirPath string) (int64, error) {
 	return size, err
 }
 
-// AvailableDiskSize 获取磁盘剩余可用空间大小
+// AvailableDiskSize 获取当前磁盘(非目录)剩余可用空间大小,单位字节
 func AvailableDiskSize() (uint64, error) {
 	wd, err := syscall.Getwd()
 	if err != nil {
