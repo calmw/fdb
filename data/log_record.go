@@ -34,6 +34,7 @@ type LogRecordHeader struct {
 type LogRecordPos struct {
 	Fid    uint32 // 文件ID，表示将数据存储在哪个文件中
 	Offset int64  // 偏移量，表示将数据存储到了文件中的哪个位置
+	Size   uint32 // 数据在磁盘上的大小
 }
 
 // TransactionRecord 暂存的事务相关的数据
@@ -74,25 +75,6 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	return encBytes, int64(size)
 }
 
-// EncodeLogRecordPos 对logRecordPos(位置信息)进行编码
-func EncodeLogRecordPos(pos *LogRecordPos) []byte {
-	buf := make([]byte, binary.MaxVarintLen32+binary.MaxVarintLen64)
-	var index = 0
-	index += binary.PutVarint(buf[index:], int64(pos.Fid))
-	index += binary.PutVarint(buf[index:], pos.Offset)
-	return buf[:index]
-}
-
-// DecodeLogRecordPos 对logRecordPos(位置信息)进行解码
-func DecodeLogRecordPos(buf []byte) *LogRecordPos {
-	fid, n := binary.Varint(buf)
-	offset, _ := binary.Varint(buf[n:])
-	return &LogRecordPos{
-		Fid:    uint32(fid),
-		Offset: offset,
-	}
-}
-
 // 对LogRecord header进行解码,拿到头部信息
 func decodeLogRecordHeader(buf []byte) (*LogRecordHeader, int64) {
 	if len(buf) <= 4 {
@@ -124,4 +106,30 @@ func getLogRecordCRC(lr *LogRecord, header []byte) uint32 {
 	crc = crc32.Update(crc, crc32.IEEETable, lr.Value)
 
 	return crc
+}
+
+// EncodeLogRecordPos 对logRecordPos(位置信息)进行编码
+func EncodeLogRecordPos(pos *LogRecordPos) []byte {
+	buf := make([]byte, binary.MaxVarintLen32*2+binary.MaxVarintLen64)
+	var index = 0
+	index += binary.PutVarint(buf[index:], int64(pos.Fid))
+	index += binary.PutVarint(buf[index:], pos.Offset)
+	index += binary.PutVarint(buf[index:], int64(pos.Size))
+	return buf[:index]
+}
+
+// DecodeLogRecordPos 对logRecordPos(位置信息)进行解码
+func DecodeLogRecordPos(buf []byte) *LogRecordPos {
+	var index = 0
+	fid, n := binary.Varint(buf[index:])
+	index += n
+	offset, n := binary.Varint(buf[index:])
+	index += n
+	size, _ := binary.Varint(buf[index:])
+
+	return &LogRecordPos{
+		Fid:    uint32(fid),
+		Offset: offset,
+		Size:   uint32(size),
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"fdb/data"
 	"fdb/fio"
 	"fdb/index"
+	"fdb/utils"
 	"fmt"
 	"github.com/gofrs/flock"
 	"io"
@@ -31,6 +32,15 @@ type DB struct {
 	isInitial       bool                      // 是否初始化数据目录，第一次启动
 	fileLock        *flock.Flock              // 文件锁，保证多进程之间（基于同一数据库文件目录的进程）互斥
 	bytesWrite      uint                      // 当前累计写了多少字节
+	reclaimSize     int64                     // 表示有多少数据是无效的
+}
+
+// Stat 存储引擎统计信息
+type Stat struct {
+	KeyNum      uint  // key的总数量
+	DataFileNum uint  // 数据文件的数量
+	ReclaimSize int64 // 可以进行merge回收的数据量，字节为单位
+	DiskSize    int64 // 数据目录所占磁盘空间大小
 }
 
 const (
@@ -84,12 +94,12 @@ func Open(options Options) (*DB, error) {
 	}
 
 	// 加载merge数据目录,将merge后的数据文件和索引文件移动到了数据目录下
-	if err := db.loadMergeFiles(); err != nil {
+	if err = db.loadMergeFiles(); err != nil {
 		return nil, err
 	}
 
 	// 加载数据文件
-	if err := db.loadDataFiles(); err != nil {
+	if err = db.loadDataFiles(); err != nil {
 		return nil, err
 	}
 
@@ -189,6 +199,27 @@ func (db *DB) Sync() error {
 	return db.activeFile.Sync()
 }
 
+// Stat 返回数据库的相关统计信息
+func (db *DB) Stat() *Stat {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	dataFiles := uint(len(db.olderFiles))
+	dirSize, err := utils.DirSize(db.options.DirPath)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get dir dirSize:%v", err))
+	}
+	if db.activeFile != nil {
+		dataFiles += 1
+	}
+	return &Stat{
+		KeyNum:      uint(db.index.Size()),
+		DataFileNum: dataFiles,
+		ReclaimSize: db.reclaimSize,
+		DiskSize:    dirSize,
+	}
+}
+
 // Put 写入key/value数据
 func (db *DB) Put(key, value []byte) error {
 	// 检查key
@@ -209,8 +240,9 @@ func (db *DB) Put(key, value []byte) error {
 
 	// 更新内存索引
 	if oldPos := db.index.Put(key, pos); oldPos != nil {
-		return ErrIndexUpdateFailed
+		db.reclaimSize += int64(oldPos.Size) // key之前已经存在，增加无效数据大小
 	}
+
 	return nil
 }
 
@@ -309,14 +341,20 @@ func (db *DB) Delete(key []byte) error {
 		Type: data.LogRecordDeleted,
 	}
 	// 写入数据文件中
-	_, err := db.appendLogRecordWithLock(logRecord)
+	pos, err := db.appendLogRecordWithLock(logRecord)
 	if err != nil {
 		return err
 	}
+	db.reclaimSize += int64(pos.Size) // 成功删除，增加无效数据大小， 增加删除标识的数据条目大小
 	// 从内存索引中，将对应的key删除
-	if !db.index.Delete(key) {
+	oldPos, ok := db.index.Delete(key)
+	if !ok {
 		return ErrIndexUpdateFailed
 	}
+	if oldPos != nil {
+		db.reclaimSize += int64(oldPos.Size) // 成功删除，增加无效数据大小，增加旧数据条目大小
+	}
+
 	return nil
 }
 
@@ -399,10 +437,15 @@ func (db *DB) loadIndexFromDataFiles() error {
 	}
 
 	updateIndex := func(key []byte, logType data.LogRecordType, pos *data.LogRecordPos) {
+		var oldPos *data.LogRecordPos
 		if logType == data.LogRecordDeleted {
-			db.index.Delete(key)
+			oldPos, _ = db.index.Delete(key)
+			db.reclaimSize += int64(pos.Size) // 增加删除标识的数据条目大小
 		} else {
 			db.index.Put(key, pos)
+		}
+		if oldPos != nil {
+			db.reclaimSize += int64(oldPos.Size) // 增加旧数据条目大小
 		}
 	}
 
@@ -438,6 +481,7 @@ func (db *DB) loadIndexFromDataFiles() error {
 			logRecordPos := &data.LogRecordPos{
 				Fid:    fileId,
 				Offset: offset,
+				Size:   uint32(size),
 			}
 
 			// 解析 key 拿到事务序列号
@@ -535,6 +579,7 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, er
 	pos := &data.LogRecordPos{
 		Fid:    db.activeFile.FileId,
 		Offset: writeOff,
+		Size:   uint32(size),
 	}
 	return pos, nil
 }
@@ -588,6 +633,9 @@ func checkOptions(options Options) error {
 	}
 	if options.DataFileSize <= 0 {
 		return errors.New("database data file size must be greater than 0")
+	}
+	if options.DataFileMergeRatio < 0 || options.DataFileMergeRatio > 1 {
+		return errors.New("invalid ratio, must between 0 and 1")
 	}
 	return nil
 }

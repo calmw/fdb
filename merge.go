@@ -2,6 +2,7 @@ package fdb
 
 import (
 	"fdb/data"
+	"fdb/utils"
 	"io"
 	"os"
 	"path"
@@ -24,6 +25,27 @@ func (db *DB) Merge() error {
 	if db.isMerging { // 如果正在进行当中，则直接返回
 		db.mu.Unlock()
 		return ErrMergeIsProgress
+	}
+
+	// 检查是否达到了可以merge的阀值
+	totalSize, err := utils.DirSize(db.options.DirPath)
+	if err != nil {
+		db.mu.Unlock()
+		return err
+	}
+	if float32(db.reclaimSize)/float32(totalSize) < db.options.DataFileMergeRatio {
+		db.mu.Unlock()
+		return ErrMergeRatioUnreached
+	}
+	// 查看剩余空间是否可以容纳merge后的数据量
+	availableDiskSize, err := utils.AvailableDiskSize()
+	if err != nil {
+		db.mu.Unlock()
+		return err
+	}
+	if uint64(totalSize-db.reclaimSize) >= availableDiskSize {
+		db.mu.Unlock()
+		return ErrNotEnoughSpaceForMerge
 	}
 
 	db.isMerging = true
@@ -176,6 +198,9 @@ func (db *DB) loadMergeFiles() error {
 		}
 		// B+树用到的事务序列号文件，不需要移动，在关闭数据库时候会更新
 		if entry.Name() == data.SeqNoFileName {
+			continue
+		}
+		if entry.Name() == dbFileLock { // 数据库锁文件所不复制
 			continue
 		}
 		mergeFileNames = append(mergeFileNames, entry.Name())

@@ -45,6 +45,7 @@ func TestBPlusTree_Delete(t *testing.T) {
 	t.Log(val0)
 
 	t.Log(tree.Put([]byte("acc"), &data.LogRecordPos{Fid: 1, Offset: 12}))
+	t.Log(tree.Put([]byte("acc"), &data.LogRecordPos{Fid: 1, Offset: 13}))
 	val1 := tree.Get([]byte("acc"))
 	t.Log(val1)
 	t.Log(tree.Delete([]byte("aaa")))

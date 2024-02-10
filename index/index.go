@@ -9,7 +9,7 @@ import (
 type Indexer interface {
 	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos // 向索引中存储key对应的数据位置信息,key已存在就更新value并返回旧的value，否则返回nil
 	Get(key []byte) *data.LogRecordPos                         // 根据key取出对应的索引位置信息
-	Delete(key []byte) bool                                    // 根据key,删除对应的索引位置信息
+	Delete(key []byte) (*data.LogRecordPos, bool)              // 根据key,删除对应的索引位置信息，已存在就删除并返回旧的value，否则返回nil
 	Size() int                                                 // 索引中存在多少条数据
 	Iterator(reverse bool) Iterator                            // 索引迭代器
 	Close() error                                              // 特别是B+树索引是需要关闭，它本身就是一个DB实例，其实btree和amt是不需要的

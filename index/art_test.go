@@ -2,6 +2,7 @@ package index
 
 import (
 	"fdb/data"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -14,8 +15,12 @@ func TestNewAdaptiveRadixTree(t *testing.T) {
 func TestAdaptiveRadixTree_Delete(t *testing.T) {
 	art := NewART()
 	art.Put([]byte("key-1"), &data.LogRecordPos{Fid: 1, Offset: 12})
-	t.Log(art.Delete([]byte("key-1")))
-	t.Log(art.Delete([]byte("key-2")))
+	oldValue, ok := art.Delete([]byte("key-1"))
+	assert.True(t, ok)
+	t.Log(oldValue)
+	oldValue, ok = art.Delete([]byte("key-2"))
+	assert.False(t, ok)
+	t.Log(oldValue)
 }
 
 func TestAdaptiveRadixTree_Get(t *testing.T) {
@@ -45,7 +50,9 @@ func TestAdaptiveRadixTree_Iterator(t *testing.T) {
 
 func TestAdaptiveRadixTree_Put(t *testing.T) {
 	art := NewART()
-	art.Put([]byte("key-1"), &data.LogRecordPos{Fid: 1, Offset: 12})
+	oldValue := art.Put([]byte("key-1"), &data.LogRecordPos{Fid: 1, Offset: 12})
+	oldValue = art.Put([]byte("key-1"), &data.LogRecordPos{Fid: 1, Offset: 13})
+	t.Log(oldValue) // 旧的值
 	pos := art.Get([]byte("key-1"))
 	t.Log(pos)
 }
