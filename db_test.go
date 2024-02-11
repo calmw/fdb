@@ -376,3 +376,32 @@ func TestDB_Stat(t *testing.T) {
 	t.Log(db.Stat())
 
 }
+
+// 测试数据库备份
+func TestDB_Backup(t *testing.T) {
+	opts := DefaultOption
+
+	// 写入数据
+	opts.DirPath = "/tmp/fdb-go"
+	t.Log(opts.DirPath)
+	db, err := Open(opts)
+	defer destroyDB(db)
+	t.Log(err)
+	for i := 0; i < 100; i++ {
+		err = db.Put([]byte(fmt.Sprintf("index-%010d", i)), []byte("some value"))
+		if err != nil {
+			t.Log(err)
+			break
+		}
+	}
+
+	t.Log(db.Backup("./fdb"))
+
+	// 打开新的存储引擎实例测试
+	opts.DirPath = "./fdb"
+	db, err = Open(opts)
+	iterator := db.index.Iterator(false)
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		t.Log(string(iterator.Key()), iterator.Value())
+	}
+}

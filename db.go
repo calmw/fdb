@@ -220,6 +220,13 @@ func (db *DB) Stat() *Stat {
 	}
 }
 
+// Backup 备份数据库，将数据文件拷贝，排除锁文件
+func (db *DB) Backup(dir string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	return utils.CopyDir(db.options.DirPath, dir, []string{dbFileLock})
+}
+
 // Put 写入key/value数据
 func (db *DB) Put(key, value []byte) error {
 	// 检查key

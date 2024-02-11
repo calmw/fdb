@@ -37,11 +37,11 @@ func AvailableDiskSize() (uint64, error) {
 	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
-// CopyDir 拷贝数据目录
+// CopyDir 拷贝数据目录,排除exclude
 func CopyDir(src, dest string, exclude []string) error {
 	// 目标目标不存在则创建
 	if _, err := os.Stat(dest); os.IsNotExist(err) {
-		if err := os.MkdirAll(dest, os.ModePerm); err != nil {
+		if err = os.MkdirAll(dest, os.ModePerm); err != nil {
 			return err
 		}
 	}
