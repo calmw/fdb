@@ -77,7 +77,6 @@ func (wb *WriteBatch) Delete(key []byte) error {
 
 // Commit 提交事物，将暂存的数据写到数据文件，并更新内存索引
 func (wb *WriteBatch) Commit() error {
-
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
 
@@ -118,7 +117,7 @@ func (wb *WriteBatch) Commit() error {
 		return err
 	}
 
-	// 根据配置持久化数据
+	// 根据配置决定是否持久化数据
 	if wb.options.SyncWrites && wb.db.activeFile != nil {
 		if err := wb.db.activeFile.Sync(); err != nil {
 			return err

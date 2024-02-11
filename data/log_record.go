@@ -5,7 +5,7 @@ import (
 	"hash/crc32"
 )
 
-type LogRecordType byte
+type LogRecordType = byte
 
 const (
 	LogRecordNormal     LogRecordType = iota // 普通类型
@@ -54,7 +54,7 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	header := make([]byte, maxLogRecordHeaderSize)
 
 	// 第五个字节存储Type
-	header[4] = byte(logRecord.Type)
+	header[4] = logRecord.Type
 	var index = 5
 	// 5字节之后，存储的是key和value的长度信息
 	// 使用变长类型，节省空间
@@ -82,7 +82,7 @@ func decodeLogRecordHeader(buf []byte) (*LogRecordHeader, int64) {
 	}
 	header := &LogRecordHeader{
 		crc:        binary.LittleEndian.Uint32(buf[:4]),
-		recordType: LogRecordType(buf[4]),
+		recordType: buf[4],
 	}
 	var index = 5
 	// 取出实际的key size

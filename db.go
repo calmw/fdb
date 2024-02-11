@@ -129,7 +129,7 @@ func Open(options Options) (*DB, error) {
 			return nil, err
 		}
 		if db.activeFile != nil {
-			size, err := db.activeFile.IOManager.Size()
+			size, err := db.activeFile.IoManager.Size()
 			if err != nil {
 				return nil, err
 			}

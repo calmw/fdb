@@ -17,7 +17,7 @@ var (
 type DataFile struct {
 	FileId    uint32        // 文件ID
 	WriteOff  int64         // 文件写到了哪个位置
-	IOManager fio.IOManager // 读写管理
+	IoManager fio.IOManager // 读写管理
 }
 
 const (
@@ -64,27 +64,29 @@ func newDataFile(fileName string, fileId uint32, ioType fio.FileIOType) (*DataFi
 	return &DataFile{
 		FileId:    fileId,
 		WriteOff:  0,
-		IOManager: ioManager,
+		IoManager: ioManager,
 	}, nil
 }
 
 // ReadLogRecord 根据offset从数据文件中读取LogRecord
 func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
-	fileSize, err := df.IOManager.Size()
+	fileSize, err := df.IoManager.Size()
 	if err != nil {
 		return nil, 0, err
 	}
-	// 如果读取的最大header长度已经超过了文件长度，则只需要读取到文件的末尾即可
+
+	// 如果读取的最大 header 长度已经超过了文件的长度，则只需要读取到文件的末尾即可
 	var headerBytes int64 = maxLogRecordHeaderSize
 	if offset+maxLogRecordHeaderSize > fileSize {
 		headerBytes = fileSize - offset
 	}
 
-	// 读取header信息
+	// 读取 Header 信息
 	headerBuf, err := df.readNBytes(headerBytes, offset)
 	if err != nil {
 		return nil, 0, err
 	}
+
 	header, headerSize := decodeLogRecordHeader(headerBuf)
 	// 下面的两个条件都表示读取到了文件末尾，直接返回EOF错误
 	if header == nil {
@@ -101,7 +103,7 @@ func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 		Type: header.recordType,
 	}
 	// 开始读取用户实际存储的key/value数据
-	if keySize > 0 && valueSize > 0 {
+	if keySize > 0 || valueSize > 0 {
 		kvBuf, err := df.readNBytes(keySize+valueSize, offset+headerSize)
 		if err != nil {
 			return nil, 0, err
@@ -120,7 +122,7 @@ func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 }
 
 func (df *DataFile) Write(buf []byte) error {
-	n, err := df.IOManager.Write(buf)
+	n, err := df.IoManager.Write(buf)
 	if err != nil {
 		return err
 	}
@@ -140,28 +142,28 @@ func (df *DataFile) WriteHintRecord(key []byte, pos *LogRecordPos) error {
 }
 
 func (df *DataFile) Close() error {
-	return df.IOManager.Close()
+	return df.IoManager.Close()
 }
 
 func (df *DataFile) Sync() error {
-	return df.IOManager.Sync()
+	return df.IoManager.Sync()
 }
 
 func (df *DataFile) SetIOManager(dirPath string, ioType fio.FileIOType) error {
-	if err := df.IOManager.Close(); err != nil {
+	if err := df.IoManager.Close(); err != nil {
 		return err
 	}
 	ioManager, err := fio.NewIOManager(GetDataFileName(dirPath, df.FileId), ioType)
 	if err != nil {
 		return err
 	}
-	df.IOManager = ioManager
+	df.IoManager = ioManager
 
 	return nil
 }
 
 func (df *DataFile) readNBytes(n int64, offset int64) ([]byte, error) {
 	b := make([]byte, n)
-	_, err := df.IOManager.Read(b, offset)
+	_, err := df.IoManager.Read(b, offset)
 	return b, err
 }
