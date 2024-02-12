@@ -36,9 +36,10 @@ func (md *metadata) encode() []byte {
 	index += binary.PutVarint(buf[index:], md.expire)
 	index += binary.PutVarint(buf[index:], md.version)
 	index += binary.PutVarint(buf[index:], int64(md.size))
+
 	if md.dataType == List {
-		index += binary.PutVarint(buf[index:], int64(md.head))
-		index += binary.PutVarint(buf[index:], int64(md.tail))
+		index += binary.PutUvarint(buf[index:], md.head)
+		index += binary.PutUvarint(buf[index:], md.tail)
 	}
 
 	return buf[:index]

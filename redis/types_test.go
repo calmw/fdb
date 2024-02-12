@@ -184,62 +184,75 @@ func TestRedisDataStructure_SRem(t *testing.T) {
 	assert.False(t, ok)
 }
 
-//func TestRedisDataStructure_LPop(t *testing.T) {
-//	opts := bitcask.DefaultOptions
-//	dir, _ := os.MkdirTemp("", "bitcask-go-redis-lpop")
-//	opts.DirPath = dir
-//	rds, err := NewRedisDataStructure(opts)
-//	assert.Nil(t, err)
-//
-//	res, err := rds.LPush(utils.GetTestKey(1), []byte("val-1"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(1), res)
-//	res, err = rds.LPush(utils.GetTestKey(1), []byte("val-1"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(2), res)
-//	res, err = rds.LPush(utils.GetTestKey(1), []byte("val-2"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(3), res)
-//
-//	val, err := rds.LPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//	val, err = rds.LPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//	val, err = rds.LPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//}
-//
-//func TestRedisDataStructure_RPop(t *testing.T) {
-//	opts := bitcask.DefaultOptions
-//	dir, _ := os.MkdirTemp("", "bitcask-go-redis-rpop")
-//	opts.DirPath = dir
-//	rds, err := NewRedisDataStructure(opts)
-//	assert.Nil(t, err)
-//
-//	res, err := rds.RPush(utils.GetTestKey(1), []byte("val-1"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(1), res)
-//	res, err = rds.RPush(utils.GetTestKey(1), []byte("val-1"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(2), res)
-//	res, err = rds.RPush(utils.GetTestKey(1), []byte("val-2"))
-//	assert.Nil(t, err)
-//	assert.Equal(t, uint32(3), res)
-//
-//	val, err := rds.RPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//	val, err = rds.RPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//	val, err = rds.RPop(utils.GetTestKey(1))
-//	assert.Nil(t, err)
-//	assert.NotNil(t, val)
-//}
-//
+func TestRedisDataStructure_LPop(t *testing.T) {
+	opts := fdb.DefaultOption
+	rds, err := NewRedisDataStructure(opts)
+	defer destroyDB()
+	assert.Nil(t, err)
+
+	val, err := rds.LPop(utils.GetTestKey(1)) // 空列表也可以pop
+	t.Log(val, err)
+	assert.Nil(t, err)
+	assert.Nil(t, val)
+
+	res, err := rds.LPush(utils.GetTestKey(1), []byte("val-1"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(1), res)
+
+	val, err = rds.LPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+
+	res, err = rds.LPush(utils.GetTestKey(1), []byte("val-1"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(1), res)
+	res, err = rds.LPush(utils.GetTestKey(1), []byte("val-2"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(2), res)
+
+	val, err = rds.LPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	val, err = rds.LPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	val, err = rds.LPop(utils.GetTestKey(1))
+	t.Log(val, err)
+	assert.Nil(t, err)
+	assert.Nil(t, val)
+	val, err = rds.LPop(utils.GetTestKey(1))
+	t.Log(val, err)
+	assert.Nil(t, err)
+	assert.Nil(t, val)
+}
+
+func TestRedisDataStructure_RPop(t *testing.T) {
+	opts := fdb.DefaultOption
+	rds, err := NewRedisDataStructure(opts)
+	defer destroyDB()
+	assert.Nil(t, err)
+
+	res, err := rds.RPush(utils.GetTestKey(1), []byte("val-1"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(1), res)
+	res, err = rds.RPush(utils.GetTestKey(1), []byte("val-1"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(2), res)
+	res, err = rds.RPush(utils.GetTestKey(1), []byte("val-2"))
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(3), res)
+
+	val, err := rds.RPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	val, err = rds.RPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+	val, err = rds.RPop(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+}
+
 //func TestRedisDataStructure_ZScore(t *testing.T) {
 //	opts := bitcask.DefaultOptions
 //	dir, _ := os.MkdirTemp("", "bitcask-go-redis-zset")

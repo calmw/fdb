@@ -15,7 +15,7 @@ type setInternalKey struct {
 }
 
 func (sk *setInternalKey) encode() []byte {
-	buf := make([]byte, len(sk.key)+len(sk.member)+8+4) // 采用固定长度编码int64，占8位,最后4个字节为member长度
+	buf := make([]byte, len(sk.key)+len(sk.member)+8+4) // 采用固定长度编码int64，占8字节,最后4个字节为member长度
 
 	// key
 	var index = 0
