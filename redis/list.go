@@ -14,7 +14,7 @@ type listInternalKey struct {
 }
 
 func (lk *listInternalKey) encode() []byte {
-	buf := make([]byte, len(lk.key)+8+8) // 采用固定长度编码int64，占8字节
+	buf := make([]byte, len(lk.key)+8+8) // int64采用固定长度编码，占8字节
 
 	// key
 	var index = 0
