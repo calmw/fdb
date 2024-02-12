@@ -6,6 +6,7 @@ import (
 	"github.com/google/btree"
 )
 
+// Indexer 抽象索引接口，后续如果想要接入其他的数据结构，则直接实现这个接口即可
 type Indexer interface {
 	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos // 向索引中存储key对应的数据位置信息,key已存在就更新value并返回旧的value，否则返回nil
 	Get(key []byte) *data.LogRecordPos                         // 根据key取出对应的索引位置信息

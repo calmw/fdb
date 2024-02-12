@@ -11,7 +11,7 @@ import (
 // 没有任何数据的情况下进行 merge
 func TestDB_Merge(t *testing.T) {
 	opts := DefaultOption
-	dir, _ := os.MkdirTemp("", "bitcask-go-merge-1")
+	dir, _ := os.MkdirTemp("", "fdb-go-merge-1")
 	opts.DirPath = dir
 	db, err := Open(opts)
 	defer destroyDB(db)
@@ -25,7 +25,7 @@ func TestDB_Merge(t *testing.T) {
 // 全部都是有效的数据
 func TestDB_Merge2(t *testing.T) {
 	opts := DefaultOption
-	dir, _ := os.MkdirTemp("", "bitcask-go-merge-2")
+	dir, _ := os.MkdirTemp("", "fdb-go-merge-2")
 	opts.DataFileSize = 32 * 1024 * 1024
 	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
@@ -64,7 +64,7 @@ func TestDB_Merge2(t *testing.T) {
 // 有失效的数据，和被重复 Put 的数据
 func TestDB_Merge3(t *testing.T) {
 	opts := DefaultOption
-	dir, _ := os.MkdirTemp("", "bitcask-go-merge-3")
+	dir, _ := os.MkdirTemp("", "fdb-go-merge-3")
 	opts.DataFileSize = 32 * 1024 * 1024
 	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
@@ -115,7 +115,7 @@ func TestDB_Merge3(t *testing.T) {
 // 全部是无效的数据
 func TestDB_Merge4(t *testing.T) {
 	opts := DefaultOption
-	dir, _ := os.MkdirTemp("", "bitcask-go-merge-4")
+	dir, _ := os.MkdirTemp("", "fdb-go-merge-4")
 	opts.DataFileSize = 32 * 1024 * 1024
 	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
@@ -152,7 +152,7 @@ func TestDB_Merge4(t *testing.T) {
 // Merge 的过程中有新的数据写入或删除
 func TestDB_Merge5(t *testing.T) {
 	opts := DefaultOption
-	dir, _ := os.MkdirTemp("", "bitcask-go-merge-5")
+	dir, _ := os.MkdirTemp("", "fdb-go-merge-5")
 	opts.DataFileSize = 32 * 1024 * 1024
 	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir

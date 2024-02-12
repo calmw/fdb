@@ -10,7 +10,7 @@ import (
 
 func TestDB_WriteBatch1(t *testing.T) {
 	opts := DefaultOption
-	//dir, _ := os.MkdirTemp("", "bitcask-go-batch-1")
+	//dir, _ := os.MkdirTemp("", "fdb-go-batch-1")
 	//opts.DirPath = dir
 	db, err := Open(opts)
 	//defer destroyDB(db)
@@ -52,7 +52,7 @@ func TestDB_WriteBatch1(t *testing.T) {
 
 func TestDB_WriteBatch2(t *testing.T) {
 	opts := DefaultOption
-	//dir, _ := os.MkdirTemp("", "bitcask-go-batch-2")
+	//dir, _ := os.MkdirTemp("", "fdb-go-batch-2")
 	//opts.DirPath = dir
 	//db, err := Open(opts)
 	//defer destroyDB(db)
@@ -93,8 +93,8 @@ func TestDB_WriteBatch2(t *testing.T) {
 
 func TestDB_WriteBatch3(t *testing.T) {
 	opts := DefaultOption
-	//dir, _ := os.MkdirTemp("", "bitcask-go-batch-3")
-	//dir := "/tmp/bitcask-go-batch-3"
+	//dir, _ := os.MkdirTemp("", "fdb-go-batch-3")
+	//dir := "/tmp/fdb-go-batch-3"
 	//opts.DirPath = dir
 	db, err := Open(opts)
 	//defer destroyDB(db)
