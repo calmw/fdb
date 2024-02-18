@@ -39,7 +39,10 @@ func main() {
 
 func (svr *FdbServer) listen() {
 	log.Println("fdb server running,ready to accept connections")
-	_ = svr.server.ListenAndServe()
+	err := svr.server.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (svr *FdbServer) accept(conn redcon.Conn) bool {

@@ -1,6 +1,9 @@
 package redis
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 /// 对几种数据类型都适用
 
@@ -19,6 +22,7 @@ func (rds *RedisDataStructure) Type(key []byte) (redisDataType, error) {
 	if len(encValue) == 0 {
 		return 0, errors.New("value is null")
 	}
+	fmt.Println(encValue[0], redisDataType(encValue[0]), 1112)
 
 	// 第一个字节是类型
 	return redisDataType(encValue[0]), nil

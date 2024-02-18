@@ -16,6 +16,8 @@ func newWrongNumberOfArgsError(cmd string) error {
 type cmdHandler func(cli *FdbClient, args [][]byte) (interface{}, error)
 
 var supportCommands = map[string]cmdHandler{
+	"type":      Type,
+	"del":       Del,
 	"set":       set,
 	"setex":     setEx,
 	"get":       get,
