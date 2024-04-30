@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"errors"
@@ -32,7 +32,7 @@ func Del(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key := args[0]
-	_, err := cli.db.Get(key)
+	_, err := cli.DB.Get(key)
 	if err != nil {
 		if errors.Is(err, fdb.ErrKeyNotFound) {
 			return redcon.SimpleInt(ok), nil
@@ -41,7 +41,7 @@ func Del(cli *FdbClient, args [][]byte) (interface{}, error) {
 		}
 	}
 
-	err = cli.db.Del(key)
+	err = cli.DB.Del(key)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func Type(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key := args[0]
-	dataType, err := cli.db.Type(key)
+	dataType, err := cli.DB.Type(key)
 	if err != nil {
 		return nil, err
 	}

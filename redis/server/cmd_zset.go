@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ func zAdd(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, score, member := args[0], args[1], args[2]
-	res, err := cli.db.ZAdd(key, utils.FloatFromBytes(score), member)
+	res, err := cli.DB.ZAdd(key, utils.FloatFromBytes(score), member)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func zScore(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key, member := args[0], args[1]
-	res, err := cli.db.ZScore(key, member)
+	res, err := cli.DB.ZScore(key, member)
 	if err != nil {
 		return nil, err
 	}

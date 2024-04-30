@@ -1,4 +1,4 @@
-package main
+package server
 
 import "github.com/tidwall/redcon"
 
@@ -8,7 +8,7 @@ func lPush(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key, value := args[0], args[1]
-	res, err := cli.db.LPush(key, value)
+	res, err := cli.DB.LPush(key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +21,7 @@ func rPush(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key, value := args[0], args[1]
-	res, err := cli.db.RPush(key, value)
+	res, err := cli.DB.RPush(key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func lPop(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key := args[0]
-	res, err := cli.db.LPop(key)
+	res, err := cli.DB.LPop(key)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func rPop(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key := args[0]
-	res, err := cli.db.RPop(key)
+	res, err := cli.DB.RPop(key)
 	if err != nil {
 		return nil, err
 	}

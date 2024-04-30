@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"github.com/tidwall/redcon"
@@ -13,7 +13,7 @@ func set(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key, value := args[0], args[1]
-	err := cli.db.Set(key, 0, value)
+	err := cli.DB.Set(key, 0, value)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func setEx(cli *FdbClient, args [][]byte) (interface{}, error) {
 		ttl = time.Second * time.Duration(ttlInt)
 	}
 
-	err := cli.db.Set(key, ttl, value)
+	err := cli.DB.Set(key, ttl, value)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func get(cli *FdbClient, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumberOfArgsError("get")
 	}
 
-	value, err := cli.db.Get(args[0])
+	value, err := cli.DB.Get(args[0])
 	if err != nil {
 		return nil, err
 	}

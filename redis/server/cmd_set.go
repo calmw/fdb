@@ -1,4 +1,4 @@
-package main
+package server
 
 import "github.com/tidwall/redcon"
 
@@ -9,7 +9,7 @@ func sAdd(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, member := args[0], args[1]
-	res, err := cli.db.SAdd(key, member)
+	res, err := cli.DB.SAdd(key, member)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func sIsMember(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, member := args[0], args[1]
-	res, err := cli.db.SIsMember(key, member)
+	res, err := cli.DB.SIsMember(key, member)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func sRem(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, member := args[0], args[1]
-	res, err := cli.db.SRem(key, member)
+	res, err := cli.DB.SRem(key, member)
 	if err != nil {
 		return nil, err
 	}

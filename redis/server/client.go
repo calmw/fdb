@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"errors"
@@ -36,11 +36,11 @@ var supportCommands = map[string]cmdHandler{
 }
 
 type FdbClient struct {
-	db     *fdbRedis.RedisDataStructure
-	server *FdbServer
+	DB     *fdbRedis.RedisDataStructure
+	Server *FdbServer
 }
 
-func execClientCommand(conn redcon.Conn, cmd redcon.Command) {
+func ExecClientCommand(conn redcon.Conn, cmd redcon.Command) {
 	command := strings.ToLower(string(cmd.Args[0]))
 	cmdFunc, ok := supportCommands[command]
 	if !ok {

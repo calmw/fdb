@@ -1,4 +1,4 @@
-package main
+package server
 
 import "github.com/tidwall/redcon"
 
@@ -9,7 +9,7 @@ func hSet(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, field, value := args[0], args[1], args[2]
-	res, err := cli.db.HSet(key, field, value)
+	res, err := cli.DB.HSet(key, field, value)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func hGet(cli *FdbClient, args [][]byte) (interface{}, error) {
 	}
 
 	key, field := args[0], args[1]
-	res, err := cli.db.HGet(key, field)
+	res, err := cli.DB.HGet(key, field)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func hDel(cli *FdbClient, args [][]byte) (interface{}, error) {
 
 	var ok = 0
 	key, field := args[0], args[1]
-	res, err := cli.db.HDel(key, field)
+	res, err := cli.DB.HDel(key, field)
 	if err != nil {
 		return nil, err
 	}
