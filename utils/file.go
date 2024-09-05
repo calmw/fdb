@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+	"github.com/shirou/gopsutil/disk"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -30,11 +32,13 @@ func AvailableDiskSize() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var stat syscall.Statfs_t
-	if err = syscall.Statfs(wd, &stat); err != nil {
+	usages, err := disk.Usage(wd) // 获取根目录磁盘使用情况
+	if err != nil {
+		fmt.Println(err)
 		return 0, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	//fmt.Printf("Total: %v, Free: %v, Used: %v, UsedPercent: %v%%\n", usages.Total, usages.Free, usages.Used, usages.UsedPercent)
+	return usages.Free, nil
 }
 
 // CopyDir 拷贝数据目录,排除exclude
